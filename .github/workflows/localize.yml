@@ -1,0 +1,41 @@
+name: Localize DramaVero media
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/localize.yml']
+permissions:
+  id-token: write
+  contents: read
+concurrency:
+  group: localize-media
+  cancel-in-progress: false
+jobs:
+  translate:
+    if: github.repository == 'msiurii91/dramavero-updates' && github.event.repository.private != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    env:
+      DV_MT_REV: 18e406c615ef2991fa74d53734bf66b0a6b10cb4
+      DV_ASR_REV: ebe41f70d5b6dfa9166e2c581c45c9c0cfc57b66
+      HF_HUB_DISABLE_XET: '1'
+    steps:
+      - name: Check public runner eligibility and obtain processor
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(gh api repos/$GITHUB_REPOSITORY --jq .private)" = false
+          token=$(curl -fsS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=dramavero-localization" | jq -er .value)
+          echo "::add-mask::$token"
+          curl --retry 3 -fsS -H "Authorization: Bearer $token" -H 'Content-Type: application/json' -d '{"op":"worker"}' https://pfvanoufosywzugmbmqi.supabase.co/functions/v1/localize-content -o "$RUNNER_TEMP/localize.py"
+      - name: Prepare CPU runtime
+        run: |
+          sudo apt-get -qq update
+          sudo apt-get -qq install -y espeak-ng ffmpeg
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" -q install faster-whisper==1.2.1 ctranslate2==4.6.3 sentencepiece==0.2.1 soundfile==0.13.1
+      - name: Process queued languages
+        run: '"$RUNNER_TEMP/venv/bin/python" "$RUNNER_TEMP/localize.py"'
