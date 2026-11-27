@@ -37,5 +37,5 @@ jobs:
           sudo apt-get -qq install -y espeak-ng ffmpeg
           python3 -m venv "$RUNNER_TEMP/venv"
           "$RUNNER_TEMP/venv/bin/pip" -q install faster-whisper==1.2.1 ctranslate2==4.6.3 sentencepiece==0.2.1 soundfile==0.13.1
-      - name: Process queued languages
+      - name: Process queued catalog languages
         run: '"$RUNNER_TEMP/venv/bin/python" "$RUNNER_TEMP/localize.py"'
